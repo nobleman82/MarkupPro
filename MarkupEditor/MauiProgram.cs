@@ -36,7 +36,7 @@ namespace MarkupEditor
                     }));
 #endif
                 });
-
+            builder.Services.AddSingleton<AppState>();
             builder.Services.AddMauiBlazorWebView();
             builder.UseMauiCommunityToolkit();
 

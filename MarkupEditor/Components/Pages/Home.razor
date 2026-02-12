@@ -1,5 +1,6 @@
 @page "/"
 @inject IJSRuntime JS
+@inject AppState AppState
 @using CommunityToolkit.Maui.Storage
 @using System.Text
 
@@ -27,7 +28,7 @@
                 <button class="tool-btn" @onclick='() => AddSnippet("> Zitat")'><i class="bi bi-quote"></i></button>
                 <button class="tool-btn" @onclick='() => AddSnippet("```csharp\n// Code hier\n```")'><i class="bi bi-code-slash"></i></button>
                 <button class="tool-btn" @onclick='() => AddSnippet("---")'><i class="bi bi-hr"></i></button>
-                <button class="tool-btn" @onclick='() => AddSnippet("![Bildbeschreibung](https://via.placeholder.com/150)")' title="Bild einfügen">
+                <button class="tool-btn" @onclick='() => AddSnippet("![Bildbeschreibung](preview.png)")' title="Bild einfügen">
                     <i class="bi bi-image"></i>
                 </button>
                 <button class="tool-btn" @onclick='() => AddSnippet("[Link Text](https://google.com)")'><i class="bi bi-link-45deg"></i></button>
@@ -58,9 +59,12 @@
             </div>
         </div>
 
-        <div class="save-btn-container">
+        <div class="action-buttons">
+            <button class="btn-open" @onclick="OpenFileNative">
+                <i class="bi bi-folder2-open me-1"></i> Öffnen
+            </button>
             <button class="btn-save" @onclick="SaveFileNative">
-                <i class="bi bi-file-earmark-arrow-down me-1"></i> Speichern unter...
+                <i class="bi bi-file-earmark-arrow-down me-1"></i> Speichern
             </button>
         </div>
     </div>
@@ -85,21 +89,22 @@
 
 @code {
     private ElementReference editorRef;
-    private string _markdownValue = "# Mein Projekt 🚀\n\nNutze die Buttons oben für Snippets!";
     private string htmlPreview = "";
     private bool showEmojiPicker = false;
+
     private string MarkdownValue
     {
-        get => _markdownValue;
+        get => AppState.MarkdownText;
         set
         {
-            if (_markdownValue != value)
+            if (AppState.MarkdownText != value)
             {
-                _markdownValue = value;
+                AppState.MarkdownText = value;
                 _ = ConvertMarkdown();
             }
         }
     }
+
     private Dictionary<string, string[]> emojiGroups = new()
     {
         { "Status", new[] { "🚀", "✅", "❌", "⚠️", "🚧", "🛑", "🆕", "🆙", "✨", "🔥" } },
@@ -113,16 +118,14 @@
     private async Task SelectEmoji(string emoji)
     {
         await AddSnippet(emoji + " ");
-        showEmojiPicker = false; // Schließt die Liste nach der Auswahl
+        showEmojiPicker = false;
     }
 
-    // Snippets hinzufügen über das neue editorFunctions Objekt
     private async Task AddSnippet(string snippet)
     {
         try
         {
-            // WICHTIG: Der Pfad muss 'editorFunctions.insertText' sein
-            _markdownValue = await JS.InvokeAsync<string>("editorFunctions.insertText", editorRef, snippet);
+            AppState.MarkdownText = await JS.InvokeAsync<string>("editorFunctions.insertText", editorRef, snippet);
             await ConvertMarkdown();
         }
         catch (Exception ex)
@@ -143,11 +146,8 @@
     {
         try
         {
-            // 1. Markdown parsen
-            htmlPreview = await JS.InvokeAsync<string>("marked.parse", _markdownValue);
+            htmlPreview = await JS.InvokeAsync<string>("marked.parse", AppState.MarkdownText);
             StateHasChanged();
-
-            // 2. Syntax Highlighting über das neue Objekt anstoßen
             await JS.InvokeVoidAsync("editorFunctions.renderHighlight");
         }
         catch (Exception ex)
@@ -156,17 +156,33 @@
         }
     }
 
-    private async Task SaveFile()
+    private async Task OpenFileNative()
     {
         try
         {
-            var path = Path.Combine(FileSystem.Current.AppDataDirectory, "README.md");
-            await File.WriteAllTextAsync(path, _markdownValue);
-            await JS.InvokeVoidAsync("alert", $"Gespeichert unter:\n{path}");
+            var result = await FilePicker.Default.PickAsync(new PickOptions
+            {
+                PickerTitle = "Markdown Datei öffnen",
+                FileTypes = new FilePickerFileType(new Dictionary<DevicePlatform, IEnumerable<string>>
+                {
+                    { DevicePlatform.WinUI, new[] { ".md", ".txt" } },
+                    { DevicePlatform.macOS, new[] { "md", "txt" } },
+                    { DevicePlatform.Android, new[] { "text/markdown", "text/plain" } },
+                    { DevicePlatform.iOS, new[] { "public.text" } }
+                })
+            });
+
+            if (result != null)
+            {
+                using var stream = await result.OpenReadAsync();
+                using var reader = new StreamReader(stream);
+                MarkdownValue = await reader.ReadToEndAsync();
+                StateHasChanged();
+            }
         }
         catch (Exception ex)
         {
-            await JS.InvokeVoidAsync("alert", $"Fehler beim Speichern: {ex.Message}");
+            await JS.InvokeVoidAsync("alert", $"Fehler beim Öffnen: {ex.Message}");
         }
     }
 
@@ -174,14 +190,12 @@
     {
         try
         {
-            using var stream = new MemoryStream(Encoding.UTF8.GetBytes(_markdownValue));
-
-            // Dies öffnet den nativen Betriebssystem-Dialog
+            using var stream = new MemoryStream(Encoding.UTF8.GetBytes(AppState.MarkdownText));
             var fileSaveResult = await FileSaver.Default.SaveAsync("README.md", stream, default);
 
             if (fileSaveResult.IsSuccessful)
             {
-                await JS.InvokeVoidAsync("alert", $"Datei erfolgreich gespeichert unter: {fileSaveResult.FilePath}");
+                await JS.InvokeVoidAsync("alert", $"Gespeichert unter: {fileSaveResult.FilePath}");
             }
         }
         catch (Exception ex)
@@ -195,7 +209,6 @@
     .editor-page-wrapper {
         display: flex;
         flex-direction: column;
-        /* Nutzt 100% des article-Containers im MainLayout */
         height: 100%;
         width: 100%;
         background: #0d1117;
@@ -237,9 +250,6 @@
         border-radius: 4px;
         font-size: 13px;
         transition: all 0.2s ease;
-        display: flex;
-        align-items: center;
-        justify-content: center;
     }
 
         .tool-btn:hover {
@@ -247,38 +257,38 @@
             color: white;
         }
 
-        .tool-btn small {
-            margin-left: 4px;
-            font-size: 10px;
-            opacity: 0.7;
-        }
+    .action-buttons {
+        display: flex;
+        gap: 10px;
+    }
 
-    /* --- Speichern Button (An About-Button angepasst) --- */
-    .save-btn-container .btn-save {
+    /* --- Buttons Styling --- */
+    .btn-save, .btn-open {
         background: linear-gradient(135deg, #30363d 0%, #21262d 100%) !important;
         color: #ffffff !important;
         border: 1px solid #484f58 !important;
         padding: 6px 16px !important;
         border-radius: 20px !important;
-        font-size: 0.9rem !important;
+        font-size: 0.85rem !important;
         font-weight: 600 !important;
-        text-decoration: none !important;
         transition: all 0.3s ease !important;
         display: flex;
         align-items: center;
         box-shadow: 0 2px 5px rgba(0,0,0,0.2);
     }
 
-        .save-btn-container .btn-save:hover {
+        .btn-save:hover {
             background: linear-gradient(135deg, #3fb950 0%, #2ea043 100%) !important;
-            color: white !important;
             border-color: #3fb950 !important;
-            box-shadow: 0 0 15px rgba(63, 185, 80, 0.4) !important;
-            transform: translateY(-1px);
-            text-decoration: none !important;
+            box-shadow: 0 0 12px rgba(63, 185, 80, 0.4) !important;
         }
 
-    /* --- Editor Layout --- */
+        .btn-open:hover {
+            background: linear-gradient(135deg, #1f6feb 0%, #0d419d 100%) !important;
+            border-color: #58a6ff !important;
+            box-shadow: 0 0 12px rgba(88, 166, 255, 0.4) !important;
+        }
+
     .split-screen {
         display: flex;
         flex: 1;
@@ -290,14 +300,13 @@
         padding: 25px;
         background: #0d1117;
         color: #e6edf3;
-        font-family: 'Cascadia Code', 'Fira Code', 'Consolas', 'Monaco', monospace;
+        font-family: 'Cascadia Code', 'Fira Code', monospace;
         border: none;
         border-right: 1px solid #30363d;
         outline: none;
         resize: none;
         font-size: 14px;
         line-height: 1.6;
-        tab-size: 4;
     }
 
     .preview-pane {
@@ -306,11 +315,6 @@
         background: #ffffff;
         color: black;
         overflow-y: auto;
-    }
-
-    /* --- Emoji Popover --- */
-    .position-relative {
-        position: relative;
     }
 
     .emoji-popover {
@@ -328,15 +332,6 @@
         overflow-y: auto;
     }
 
-    .emoji-group-title {
-        font-size: 10px;
-        color: #8b949e;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        margin: 10px 0 5px 2px;
-        font-weight: bold;
-    }
-
     .emoji-grid {
         display: grid;
         grid-template-columns: repeat(6, 1fr);
@@ -348,25 +343,24 @@
         border: none;
         font-size: 18px;
         padding: 6px;
-        border-radius: 5px;
         cursor: pointer;
-        transition: background 0.15s;
     }
 
-        .emoji-item:hover {
-            background: #30363d;
-        }
+    .markdown-body pre {
+        background-color: #161b22 !important;
+        padding: 16px;
+        border-radius: 6px;
+    }
 
-    /* --- Responsive --- */
     @@media (max-width: 768px) {
         .split-screen {
             flex-direction: column;
         }
 
         .editor-pane {
+            height: 50%;
             border-right: none;
             border-bottom: 1px solid #30363d;
-            height: 50%;
         }
     }
 </style>

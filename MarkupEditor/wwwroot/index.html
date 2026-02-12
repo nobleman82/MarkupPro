@@ -13,7 +13,6 @@
 
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/github-markdown-css/5.5.1/github-markdown.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/vs.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 </head>
 
@@ -33,6 +32,17 @@
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 
     <script>
+        // Marked.js konfigurieren, um Highlight.js zu nutzen
+        if (typeof marked !== 'undefined' && typeof hljs !== 'undefined') {
+            marked.setOptions({
+                highlight: function (code, lang) {
+                    const language = hljs.getLanguage(lang) ? lang : 'plaintext';
+                    return hljs.highlight(code, { language }).value;
+                },
+                langPrefix: 'hljs language-'
+            });
+        }
+
         window.editorFunctions = {
             // Text an Cursor-Position einfügen
             insertText: function (element, text) {
@@ -54,11 +64,11 @@
                 return element.value;
             },
 
-            // Syntax-Highlighting erzwingen und Cache umgehen
+            // Syntax-Highlighting für die Vorschau triggern
             renderHighlight: function () {
                 if (typeof hljs !== 'undefined') {
                     document.querySelectorAll('pre code').forEach((el) => {
-                        // Wichtig: Markierung löschen, sonst ignoriert Highlight.js das Element
+                        // Markierung löschen, damit hljs neu rendert
                         delete el.dataset.highlighted;
                         hljs.highlightElement(el);
                     });
