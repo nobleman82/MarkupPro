@@ -1,0 +1,372 @@
+@page "/"
+@inject IJSRuntime JS
+@using CommunityToolkit.Maui.Storage
+@using System.Text
+
+<div class="editor-page-wrapper">
+    @* --- TOOLBAR MIT SNIPPETS & EMOJIS --- *@
+    <div class="toolbar">
+        <div class="snippet-bar">
+            <div class="group">
+                <button class="tool-btn" @onclick='() => AddSnippet("# ")'>H1</button>
+                <button class="tool-btn" @onclick='() => AddSnippet("## ")'>H2</button>
+                <button class="tool-btn" @onclick='() => AddSnippet("### ")'>H3</button>
+                <button class="tool-btn" @onclick='() => AddSnippet("**Fett**")'><i class="bi bi-type-bold"></i></button>
+                <button class="tool-btn" @onclick='() => AddSnippet("*Kursiv*")'><i class="bi bi-type-italic"></i></button>
+                <button class="tool-btn" @onclick='() => AddSnippet("~~Durchgestrichen~~")'><i class="bi bi-type-strikethrough"></i></button>
+            </div>
+
+            <div class="group">
+                <button class="tool-btn" @onclick='() => AddSnippet("- Punkt")'><i class="bi bi-list-ul"></i></button>
+                <button class="tool-btn" @onclick='() => AddSnippet("1. Punkt")'><i class="bi bi-list-ol"></i></button>
+                <button class="tool-btn" @onclick='() => AddSnippet("- [ ] Aufgabe")'><i class="bi bi-check2-square"></i></button>
+                <button class="tool-btn" @onclick='() => AddSnippet("| Spalte | Spalte |\n|---|---|\n| Text | Text |")'><i class="bi bi-table"></i></button>
+            </div>
+
+            <div class="group">
+                <button class="tool-btn" @onclick='() => AddSnippet("> Zitat")'><i class="bi bi-quote"></i></button>
+                <button class="tool-btn" @onclick='() => AddSnippet("```csharp\n// Code hier\n```")'><i class="bi bi-code-slash"></i></button>
+                <button class="tool-btn" @onclick='() => AddSnippet("---")'><i class="bi bi-hr"></i></button>
+                <button class="tool-btn" @onclick='() => AddSnippet("![Bildbeschreibung](https://via.placeholder.com/150)")' title="Bild einfügen">
+                    <i class="bi bi-image"></i>
+                </button>
+                <button class="tool-btn" @onclick='() => AddSnippet("[Link Text](https://google.com)")'><i class="bi bi-link-45deg"></i></button>
+            </div>
+
+            <div class="group position-relative">
+                <button type="button" class="tool-btn" @onclick="ToggleEmojiPicker" title="Emoji auswählen">
+                    <i class="bi bi-emoji-smile"></i> v
+                </button>
+
+                @if (showEmojiPicker)
+                {
+                    <div class="emoji-popover">
+                        @foreach (var group in emojiGroups)
+                        {
+                            <div class="emoji-group-title">@group.Key</div>
+                            <div class="emoji-grid">
+                                @foreach (var emoji in group.Value)
+                                {
+                                    <button type="button" class="emoji-item" @onclick="() => SelectEmoji(emoji)">
+                                        @emoji
+                                    </button>
+                                }
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+
+        <div class="save-btn-container">
+            <button class="btn-save" @onclick="SaveFileNative">
+                <i class="bi bi-file-earmark-arrow-down me-1"></i> Speichern unter...
+            </button>
+        </div>
+    </div>
+
+    @* --- EDITOR & VORSCHAU --- *@
+    <div class="split-screen">
+        <textarea @ref="editorRef"
+                  class="editor-pane"
+                  @bind="MarkdownValue"
+                  @bind:event="oninput"
+                  spellcheck="false"
+                  placeholder="Schreibe dein Markdown...">
+        </textarea>
+
+        <div class="preview-pane">
+            <div class="markdown-body">
+                @((MarkupString)htmlPreview)
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private ElementReference editorRef;
+    private string _markdownValue = "# Mein Projekt 🚀\n\nNutze die Buttons oben für Snippets!";
+    private string htmlPreview = "";
+    private bool showEmojiPicker = false;
+    private string MarkdownValue
+    {
+        get => _markdownValue;
+        set
+        {
+            if (_markdownValue != value)
+            {
+                _markdownValue = value;
+                _ = ConvertMarkdown();
+            }
+        }
+    }
+    private Dictionary<string, string[]> emojiGroups = new()
+    {
+        { "Status", new[] { "🚀", "✅", "❌", "⚠️", "🚧", "🛑", "🆕", "🆙", "✨", "🔥" } },
+        { "Tech", new[] { "💻", "⚙️", "🛠️", "📦", "💾", "🔌", "🔒", "🔑", "🛡️", "🧪" } },
+        { "Info", new[] { "💡", "ℹ️", "📝", "📌", "🔍", "📖", "🎨", "🌐" } },
+        { "Feedback", new[] { "⭐", "💎", "👍", "🙌", "🎉", "👏", "🎈", "🧧" } }
+    };
+
+    private void ToggleEmojiPicker() => showEmojiPicker = !showEmojiPicker;
+
+    private async Task SelectEmoji(string emoji)
+    {
+        await AddSnippet(emoji + " ");
+        showEmojiPicker = false; // Schließt die Liste nach der Auswahl
+    }
+
+    // Snippets hinzufügen über das neue editorFunctions Objekt
+    private async Task AddSnippet(string snippet)
+    {
+        try
+        {
+            // WICHTIG: Der Pfad muss 'editorFunctions.insertText' sein
+            _markdownValue = await JS.InvokeAsync<string>("editorFunctions.insertText", editorRef, snippet);
+            await ConvertMarkdown();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Fehler beim Einfügen: {ex.Message}");
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await ConvertMarkdown();
+        }
+    }
+
+    private async Task ConvertMarkdown()
+    {
+        try
+        {
+            // 1. Markdown parsen
+            htmlPreview = await JS.InvokeAsync<string>("marked.parse", _markdownValue);
+            StateHasChanged();
+
+            // 2. Syntax Highlighting über das neue Objekt anstoßen
+            await JS.InvokeVoidAsync("editorFunctions.renderHighlight");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Render-Fehler: {ex.Message}");
+        }
+    }
+
+    private async Task SaveFile()
+    {
+        try
+        {
+            var path = Path.Combine(FileSystem.Current.AppDataDirectory, "README.md");
+            await File.WriteAllTextAsync(path, _markdownValue);
+            await JS.InvokeVoidAsync("alert", $"Gespeichert unter:\n{path}");
+        }
+        catch (Exception ex)
+        {
+            await JS.InvokeVoidAsync("alert", $"Fehler beim Speichern: {ex.Message}");
+        }
+    }
+
+    private async Task SaveFileNative()
+    {
+        try
+        {
+            using var stream = new MemoryStream(Encoding.UTF8.GetBytes(_markdownValue));
+
+            // Dies öffnet den nativen Betriebssystem-Dialog
+            var fileSaveResult = await FileSaver.Default.SaveAsync("README.md", stream, default);
+
+            if (fileSaveResult.IsSuccessful)
+            {
+                await JS.InvokeVoidAsync("alert", $"Datei erfolgreich gespeichert unter: {fileSaveResult.FilePath}");
+            }
+        }
+        catch (Exception ex)
+        {
+            await JS.InvokeVoidAsync("alert", $"Fehler beim Speichern: {ex.Message}");
+        }
+    }
+}
+
+<style>
+    .editor-page-wrapper {
+        display: flex;
+        flex-direction: column;
+        /* Nutzt 100% des article-Containers im MainLayout */
+        height: 100%;
+        width: 100%;
+        background: #0d1117;
+        color: white;
+        overflow: hidden;
+    }
+
+    .toolbar {
+        padding: 8px 15px;
+        background: #161b22;
+        border-bottom: 1px solid #30363d;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-shrink: 0;
+    }
+
+    .snippet-bar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+    }
+
+    .group {
+        display: flex;
+        gap: 2px;
+        background: #21262d;
+        border-radius: 6px;
+        padding: 3px;
+        border: 1px solid #30363d;
+        align-items: center;
+    }
+
+    .tool-btn {
+        background: transparent;
+        border: none;
+        color: #c9d1d9;
+        padding: 4px 10px;
+        border-radius: 4px;
+        font-size: 13px;
+        transition: all 0.2s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+        .tool-btn:hover {
+            background: #30363d;
+            color: white;
+        }
+
+        .tool-btn small {
+            margin-left: 4px;
+            font-size: 10px;
+            opacity: 0.7;
+        }
+
+    /* --- Speichern Button (An About-Button angepasst) --- */
+    .save-btn-container .btn-save {
+        background: linear-gradient(135deg, #30363d 0%, #21262d 100%) !important;
+        color: #ffffff !important;
+        border: 1px solid #484f58 !important;
+        padding: 6px 16px !important;
+        border-radius: 20px !important;
+        font-size: 0.9rem !important;
+        font-weight: 600 !important;
+        text-decoration: none !important;
+        transition: all 0.3s ease !important;
+        display: flex;
+        align-items: center;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    }
+
+        .save-btn-container .btn-save:hover {
+            background: linear-gradient(135deg, #3fb950 0%, #2ea043 100%) !important;
+            color: white !important;
+            border-color: #3fb950 !important;
+            box-shadow: 0 0 15px rgba(63, 185, 80, 0.4) !important;
+            transform: translateY(-1px);
+            text-decoration: none !important;
+        }
+
+    /* --- Editor Layout --- */
+    .split-screen {
+        display: flex;
+        flex: 1;
+        overflow: hidden;
+    }
+
+    .editor-pane {
+        flex: 1;
+        padding: 25px;
+        background: #0d1117;
+        color: #e6edf3;
+        font-family: 'Cascadia Code', 'Fira Code', 'Consolas', 'Monaco', monospace;
+        border: none;
+        border-right: 1px solid #30363d;
+        outline: none;
+        resize: none;
+        font-size: 14px;
+        line-height: 1.6;
+        tab-size: 4;
+    }
+
+    .preview-pane {
+        flex: 1;
+        padding: 40px;
+        background: #ffffff;
+        color: black;
+        overflow-y: auto;
+    }
+
+    /* --- Emoji Popover --- */
+    .position-relative {
+        position: relative;
+    }
+
+    .emoji-popover {
+        position: absolute;
+        top: 110%;
+        left: 0;
+        width: 280px;
+        max-height: 350px;
+        background: #161b22;
+        border: 1px solid #30363d;
+        border-radius: 8px;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+        z-index: 1050;
+        padding: 12px;
+        overflow-y: auto;
+    }
+
+    .emoji-group-title {
+        font-size: 10px;
+        color: #8b949e;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin: 10px 0 5px 2px;
+        font-weight: bold;
+    }
+
+    .emoji-grid {
+        display: grid;
+        grid-template-columns: repeat(6, 1fr);
+        gap: 5px;
+    }
+
+    .emoji-item {
+        background: transparent;
+        border: none;
+        font-size: 18px;
+        padding: 6px;
+        border-radius: 5px;
+        cursor: pointer;
+        transition: background 0.15s;
+    }
+
+        .emoji-item:hover {
+            background: #30363d;
+        }
+
+    /* --- Responsive --- */
+    @@media (max-width: 768px) {
+        .split-screen {
+            flex-direction: column;
+        }
+
+        .editor-pane {
+            border-right: none;
+            border-bottom: 1px solid #30363d;
+            height: 50%;
+        }
+    }
+</style>

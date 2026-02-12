@@ -1,0 +1,22 @@
+﻿@inherits LayoutComponentBase
+
+<div class="page">
+    <main>
+        <div class="top-row shadow-sm">
+            <div class="brand-container">
+                <i class="bi bi-rocket-takeoff-fill text-warning me-2"></i>
+                <span class="brand-markup">Markup</span><span class="brand-pro">Pro</span>
+            </div>
+
+            <div class="actions-container">
+                <NavLink class="btn-about" href="about">
+                    <i class="bi bi-info-circle me-1"></i> About
+                </NavLink>
+            </div>
+        </div>
+
+        <article class="content-full">
+            @Body
+        </article>
+    </main>
+</div>

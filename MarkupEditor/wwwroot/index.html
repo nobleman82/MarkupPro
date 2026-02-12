@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <title>MarkupEditor</title>
+    <base href="/" />
+
+    <link rel="stylesheet" href="lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="app.css" />
+    <link rel="stylesheet" href="MarkupEditor.styles.css" />
+    <link rel="icon" href="data:,">
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/github-markdown-css/5.5.1/github-markdown.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/vs.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+</head>
+
+<body>
+
+    <div class="status-bar-safe-area"></div>
+
+    <div id="app">Loading...</div>
+
+    <div id="blazor-error-ui" data-nosnippet>
+        An unhandled error has occurred.
+        <a href="." class="reload">Reload</a>
+        <span class="dismiss">🗙</span>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+    <script>
+        window.editorFunctions = {
+            // Text an Cursor-Position einfügen
+            insertText: function (element, text) {
+                if (!element) return "";
+
+                const start = element.selectionStart;
+                const end = element.selectionEnd;
+                const value = element.value;
+
+                // Neuen String zusammenbauen
+                element.value = value.substring(0, start) + text + value.substring(end);
+
+                // Cursor hinter das Snippet setzen
+                element.selectionStart = element.selectionEnd = start + text.length;
+
+                // Fokus zurückgeben
+                element.focus();
+
+                return element.value;
+            },
+
+            // Syntax-Highlighting erzwingen und Cache umgehen
+            renderHighlight: function () {
+                if (typeof hljs !== 'undefined') {
+                    document.querySelectorAll('pre code').forEach((el) => {
+                        // Wichtig: Markierung löschen, sonst ignoriert Highlight.js das Element
+                        delete el.dataset.highlighted;
+                        hljs.highlightElement(el);
+                    });
+                }
+            }
+        };
+    </script>
+
+    <script src="_framework/blazor.webview.js" autostart="false"></script>
+
+</body>
+</html>

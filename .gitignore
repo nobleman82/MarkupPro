@@ -1,0 +1,31 @@
+## Visual Studio Cache & Settings
+.vs/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+## .NET Core / Build Verzeichnisse
+[Bb]in/
+[Oo]bj/
+[Log]/
+
+## MAUI & Windows Spezifisch
+.maui-symbols/
+AppPackages/
+BundleArtifacts/
+/x64/
+/x86/
+/ARM/
+/ARM64/
+
+## Visual Studio Code
+.vscode/
+
+## macOS / iOS (falls du mal auf Mac baust)
+.DS_Store
+[Tt]emp/
+*.[Cc]ache
+
+## Rider / JetBrains
+.idea/

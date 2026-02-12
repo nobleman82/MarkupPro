@@ -1,0 +1,81 @@
+/* Grundgerüst fixieren */
+.page {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    width: 100vw;
+    overflow: hidden;
+}
+
+main {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    width: 100%;
+}
+
+.top-row {
+    height: 4rem;
+    background-color: #161b22;
+    border-bottom: 1px solid #30363d;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 1.5rem !important;
+    flex-shrink: 0; /* Verhindert, dass die Leiste kleiner wird */
+    z-index: 100;
+}
+
+/* Branding */
+.brand-container {
+    font-size: 1.5rem;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    display: flex;
+    align-items: center;
+}
+
+.brand-markup {
+    color: #ffffff;
+}
+
+.brand-pro {
+    color: #3fb950;
+    margin-left: 2px;
+}
+
+/* Der Content-Bereich füllt exakt den Rest */
+.content-full {
+    flex: 1;
+    height: calc(100vh - 4rem);
+    overflow: hidden;
+    padding: 0 !important;
+    display: flex;
+    flex-direction: column;
+}
+
+/* About Button - Styling verstärkt */
+/* Der ::deep Selektor zwingt Blazor, das Style auf Unterkomponenten anzuwenden */
+::deep .btn-about {
+    background: linear-gradient(135deg, #30363d 0%, #21262d 100%) !important;
+    color: #ffffff !important;
+    border: 1px solid #484f58 !important;
+    padding: 8px 20px !important;
+    border-radius: 20px !important;
+    font-size: 0.9rem !important;
+    font-weight: 600 !important;
+    text-decoration: none !important;
+    transition: all 0.3s ease !important;
+    display: inline-flex !important; /* inline-flex für korrekte Button-Breite */
+    align-items: center;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+}
+
+    ::deep .btn-about:hover {
+        background: linear-gradient(135deg, #3fb950 0%, #2ea043 100%) !important;
+        color: white !important;
+        border-color: #3fb950 !important;
+        box-shadow: 0 0 15px rgba(63, 185, 80, 0.4) !important;
+        transform: translateY(-1px);
+        text-decoration: none !important;
+    }
