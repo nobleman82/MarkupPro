@@ -4,7 +4,7 @@
 
 ---
 
-## ✨ Features
+## ✨ Features 
 
 MarkupPro bietet eine intuitive Benutzeroberfläche und leistungsstarke Werkzeuge für Entwickler und Autoren:
 
